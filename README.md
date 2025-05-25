@@ -47,8 +47,7 @@
 本アプリケーションはGitHub APIを利用してコミットデータを取得します。
 APIのレートリミットを緩和するために、GitHub Personal Access Token (PAT) の設定が**強く推奨**されます。
 
-1.  GitHubでPATを発行します。必要なスコープは `repo` (または公開リポジトリのみを分析する場合は `public_repo`) です。
-    詳細は [GitHubのドキュメント](https://docs.github.com/ja/authentication/keeping-your-account-and-data-secure/managing-your-personal-access-tokens) を参照してください。
+1.  GitHubでPATを発行します。スコープはデフォルトで
 2.  プロジェクトの `backend` ディレクトリ直下に `.env` という名前のファイルを作成します。
 3.  `.env` ファイルに以下のようにPATを記述します:
     ```env
@@ -104,8 +103,6 @@ APIのレートリミットを緩和するために、GitHub Personal Access Tok
     ```bash
     python app/main.py
     ```
-
-    **注記:** 以前Poetryを使用していた場合、`backend/pyproject.toml` と `backend/poetry.lock` は不要になりました。必要に応じて手動で削除してください。
 
 #### フロントエンド (Next.js)
 
