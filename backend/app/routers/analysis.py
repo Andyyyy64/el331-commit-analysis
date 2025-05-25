@@ -170,7 +170,8 @@ async def user_kwic_search(
     username: str,
     keyword: str = Query(..., description="検索キーワード"),
     search_type: str = Query("token", description="検索タイプ: token, pos, entity"),
-    window_size: int = Query(5, description="前後の単語数")
+    window_size: int = Query(5, description="前後の単語数"),
+    sort_type: str = Query("sequential", description="ソート順: sequential, next_token_frequency, next_pos_frequency")
 ):
     """ユーザー分析でのKWIC検索を実行"""
     start_time = time.time()
@@ -188,17 +189,18 @@ async def user_kwic_search(
         )
     
     logger.info(f"--- DEBUG: Cache key '{cache_key}' found with 'processed_commits'.")
-    logger.info(f"[ユーザーKWIC検索開始] {cache_key}: キーワード='{keyword}', タイプ='{search_type}', ウィンドウサイズ={window_size}")
+    logger.info(f"[ユーザーKWIC検索開始] {cache_key}: キーワード='{keyword}', タイプ='{search_type}', ウィンドウサイズ={window_size}, ソート='{sort_type}'")
     
     try:
         processed_commits = analysis_cache[cache_key]['processed_commits']
         results = nlp_service.kwic_search(
-            processed_commits, keyword, search_type, window_size
+            processed_commits, keyword, search_type, window_size, sort_type
         )
         duration = time.time() - start_time
         logger.info(f"[ユーザーKWIC検索完了] {cache_key}: {len(results)}件の結果。(所要時間: {duration:.2f}秒)")
         return KwicResponse(
-            keyword=keyword, search_type=search_type, window_size=window_size, results=results
+            keyword=keyword, search_type=search_type, window_size=window_size, results=results,
+            sort_type=sort_type
         )
     except Exception as e:
         duration = time.time() - start_time
@@ -277,12 +279,13 @@ async def kwic_search(
     repo: str,
     keyword: str = Query(..., description="検索キーワード"),
     search_type: str = Query("token", description="検索タイプ: token, pos, entity"),
-    window_size: int = Query(5, description="前後の単語数")
+    window_size: int = Query(5, description="前後の単語数"),
+    sort_type: str = Query("sequential", description="ソート順: sequential, next_token_frequency, next_pos_frequency")
 ):
     """KWIC検索を実行"""
     start_time = time.time()
     cache_key = f"{owner}/{repo}"
-    logger.info(f"[KWIC検索開始] {cache_key}: キーワード='{keyword}', タイプ='{search_type}', ウィンドウサイズ={window_size}")
+    logger.info(f"[KWIC検索開始] {cache_key}: キーワード='{keyword}', タイプ='{search_type}', ウィンドウサイズ={window_size}, ソート='{sort_type}'")
     
     if cache_key not in analysis_cache or 'processed_commits' not in analysis_cache[cache_key]:
         logger.warning(f"[KWIC検索エラー] {cache_key}: 事前分析データが見つかりません。先にリポジトリ分析を実行してください。")
@@ -294,12 +297,13 @@ async def kwic_search(
     try:
         processed_commits = analysis_cache[cache_key]['processed_commits']
         results = nlp_service.kwic_search(
-            processed_commits, keyword, search_type, window_size
+            processed_commits, keyword, search_type, window_size, sort_type
         )
         duration = time.time() - start_time
         logger.info(f"[KWIC検索完了] {cache_key}: {len(results)}件の結果。(所要時間: {duration:.2f}秒)")
         return KwicResponse(
-            keyword=keyword, search_type=search_type, window_size=window_size, results=results
+            keyword=keyword, search_type=search_type, window_size=window_size, results=results,
+            sort_type=sort_type
         )
     except Exception as e:
         duration = time.time() - start_time

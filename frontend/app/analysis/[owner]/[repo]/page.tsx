@@ -26,6 +26,10 @@ interface KwicResult {
   left: string
   right: string
   commit_hash: string
+  next_token?: string
+  next_pos?: string
+  sort_metric_label?: string
+  sort_metric_value?: string
 }
 
 interface NgramData {
@@ -57,6 +61,7 @@ export default function AnalysisPage() {
   // KWIC検索用の状態
   const [kwicKeyword, setKwicKeyword] = useState('')
   const [kwicSearchType, setKwicSearchType] = useState('token')
+  const [kwicSortType, setKwicSortType] = useState('sequential')
 
   // fetchAnalysisData を useCallback でメモ化
   const fetchAnalysisData = useCallback(async () => {
@@ -125,7 +130,8 @@ export default function AnalysisPage() {
         new URLSearchParams({
           keyword: kwicKeyword,
           search_type: kwicSearchType,
-          window_size: '5'
+          window_size: '5',
+          sort_type: kwicSortType
         }))
       
       if (response.ok) {
@@ -223,18 +229,34 @@ export default function AnalysisPage() {
                     <option value="pos">品詞</option>
                     <option value="entity">固有表現</option>
                   </select>
+                  <select 
+                    value={kwicSortType} 
+                    onChange={(e) => setKwicSortType(e.target.value)}
+                    className="px-3 py-2 border rounded-md"
+                  >
+                    <option value="sequential">出現順</option>
+                    <option value="next_token_frequency">後続単語頻度順</option>
+                    <option value="next_pos_frequency">後続品詞頻度順</option>
+                  </select>
                   <Button onClick={performKwicSearch}>検索</Button>
                 </div>
                 
                 {kwicResults.length > 0 && (
                   <div className="space-y-2">
                     {kwicResults.map((result, idx) => (
-                      <div key={idx} className="p-3 bg-slate-50 rounded-lg">
-                        <span className="text-slate-600">{result.left}</span>
-                        <span className="bg-yellow-200 px-1 font-bold">{result.keyword}</span>
-                        <span className="text-slate-600">{result.right}</span>
-                        <div className="text-xs text-slate-500 mt-1">
-                          Commit: {result.commit_hash}
+                      <div key={idx} className="p-3 bg-slate-50 rounded-lg border">
+                        <div className="font-mono text-sm mb-1">
+                          <span className="text-slate-600">{result.left}</span>
+                          <span className="bg-yellow-200 px-1 font-bold">{result.keyword}</span>
+                          <span className="text-slate-600">{result.right}</span>
+                        </div>
+                        <div className="text-xs text-slate-500 flex justify-between items-center">
+                          <span>Commit: {result.commit_hash}</span>
+                          {result.sort_metric_label && result.sort_metric_value && (
+                            <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full text-xs">
+                              {result.sort_metric_label}: {result.sort_metric_value}
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))}

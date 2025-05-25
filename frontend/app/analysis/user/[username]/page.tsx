@@ -34,6 +34,8 @@ interface KwicResult {
   left: string
   right: string
   commit_hash: string
+  sort_metric_label?: string
+  sort_metric_value?: string
 }
 
 interface NgramResult {
@@ -63,6 +65,8 @@ export default function UserAnalysisPage() {
   const [kwicKeyword, setKwicKeyword] = useState('')
   const [kwicResults, setKwicResults] = useState<KwicResult[]>([])
   const [isKwicLoading, setIsKwicLoading] = useState(false)
+  const [kwicSearchType, setKwicSearchType] = useState('token')
+  const [kwicSortType, setKwicSortType] = useState('sequential')
 
   // N-gram分析
   const [ngramResults, setNgramResults] = useState<NgramResult[]>([])
@@ -110,8 +114,15 @@ export default function UserAnalysisPage() {
     
     setIsKwicLoading(true)
     try {
+      const apiUrlBase = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
       const response = await fetch(
-        `http://localhost:8000/api/analysis/user/${username}/kwic?keyword=${encodeURIComponent(kwicKeyword)}&search_type=token&window_size=5`
+        `${apiUrlBase}/analysis/user/${username}/kwic?` + 
+        new URLSearchParams({
+          keyword: kwicKeyword,
+          search_type: kwicSearchType, 
+          window_size: '5',
+          sort_type: kwicSortType
+        })
       )
       
       if (!response.ok) {
@@ -351,21 +362,44 @@ export default function UserAnalysisPage() {
                     onChange={(e) => setKwicKeyword(e.target.value)}
                     onKeyPress={(e) => e.key === 'Enter' && performKwicSearch()}
                   />
+                  <select 
+                    value={kwicSearchType} 
+                    onChange={(e) => setKwicSearchType(e.target.value)}
+                    className="px-3 py-2 border rounded-md"
+                  >
+                    <option value="token">単語</option>
+                    <option value="pos">品詞</option>
+                    <option value="entity">固有表現</option>
+                  </select>
+                  <select 
+                    value={kwicSortType} 
+                    onChange={(e) => setKwicSortType(e.target.value)}
+                    className="px-3 py-2 border rounded-md"
+                  >
+                    <option value="sequential">出現順</option>
+                    <option value="next_token_frequency">後続単語頻度順</option>
+                    <option value="next_pos_frequency">後続品詞頻度順</option>
+                  </select>
                   <Button onClick={performKwicSearch} disabled={isKwicLoading}>
                     {isKwicLoading ? '検索中...' : '検索'}
                   </Button>
                 </div>
                 
                 <div className="space-y-2">
-                  {kwicResults.map((result, index) => (
-                    <div key={index} className="p-3 bg-slate-50 rounded border">
-                      <div className="font-mono text-sm">
+                  {kwicResults.map((result, idx) => (
+                    <div key={idx} className="p-3 bg-slate-50 rounded-lg border">
+                      <div className="font-mono text-sm mb-1">
                         <span className="text-slate-600">{result.left}</span>
                         <span className="bg-yellow-200 px-1 font-bold">{result.keyword}</span>
                         <span className="text-slate-600">{result.right}</span>
                       </div>
-                      <div className="text-xs text-slate-500 mt-1">
-                        Commit: {result.commit_hash}
+                      <div className="text-xs text-slate-500 flex justify-between items-center">
+                        <span>Commit: {result.commit_hash}</span>
+                        {result.sort_metric_label && result.sort_metric_value && (
+                          <span className="bg-slate-200 text-slate-700 px-2 py-0.5 rounded-full text-xs">
+                            {result.sort_metric_label}: {result.sort_metric_value}
+                          </span>
+                        )}
                       </div>
                     </div>
                   ))}

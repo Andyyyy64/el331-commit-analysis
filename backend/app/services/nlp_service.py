@@ -63,14 +63,15 @@ class NLPService:
         return processed_commits
 
     def kwic_search(self, processed_commits: List[Dict], keyword: str, 
-                   search_type: str = 'token', window_size: int = 5) -> List[Dict]:
-        logger.info(f"[KWIC検索処理開始] キーワード='{keyword}', タイプ='{search_type}', 対象コミット数={len(processed_commits)}")
+                   search_type: str = 'token', window_size: int = 5,
+                   sort_type: str = 'sequential') -> List[Dict]:
+        logger.info(f"[KWIC検索処理開始] キーワード='{keyword}', タイプ='{search_type}', ソート='{sort_type}', 対象コミット数={len(processed_commits)}")
         start_time = time.time()
         results = []
         
         for commit in processed_commits:
             doc = commit['doc']
-            tokens = [token.text for token in doc]
+            # tokens = [token.text for token in doc] # spaCy v3ではdoc.textで取得したほうが良い場合があるが、ここではtoken objectを使う
             
             matches = []
             if search_type == 'token':
@@ -82,30 +83,81 @@ class NLPService:
             elif search_type == 'entity':
                 for ent in doc.ents:
                     if ent.label_ == keyword.upper():
+                        # エンティティの場合、エンティティの開始トークンのインデックスをmatchとする
                         matches.append(ent.start)
             
             for match_idx in matches:
                 left_start = max(0, match_idx - window_size)
-                keyword_token_span = 1
+                
+                # キーワード自体のトークン（単数または複数）を特定
+                keyword_tokens_text = []
+                keyword_start_index = match_idx
+                keyword_end_index = match_idx + 1 # デフォルトは1トークン
+
                 if search_type == 'entity':
                     found_ent = next((ent for ent in doc.ents if ent.start == match_idx and ent.label_ == keyword.upper()), None)
                     if found_ent:
-                        keyword_token_span = len(found_ent.text.split())
+                        keyword_tokens_text = [token.text for token in found_ent]
+                        keyword_end_index = found_ent.end
+                    else: # Entityが見つからない場合は、マッチしたトークン自体をキーワードとする(通常ありえないがフォールバック)
+                        keyword_tokens_text = [doc[match_idx].text]
+                elif search_type == 'pos': # 品詞の場合、マッチしたトークン自体をキーワードとする
+                    keyword_tokens_text = [doc[match_idx].text]
+                else: # token検索の場合
+                    keyword_tokens_text = [doc[match_idx].text] # keyword.lower()で検索しているので、元のテキストを使う
                 
-                right_end = min(len(tokens), match_idx + keyword_token_span + window_size)
+                actual_keyword_text = ' '.join(keyword_tokens_text)
+
+                # キーワードの直後のトークンとその品詞を取得
+                next_token_text = None
+                next_token_pos = None
+                if keyword_end_index < len(doc):
+                    next_token_text = doc[keyword_end_index].text.lower()
+                    next_token_pos = doc[keyword_end_index].pos_
+
+                right_context_start = keyword_end_index
+                right_context_end = min(len(doc), keyword_end_index + window_size)
                 
-                left_context = ' '.join(tokens[left_start:match_idx])
-                matched_tokens = tokens[match_idx : match_idx + keyword_token_span]
-                keyword_text = ' '.join(matched_tokens)
-                right_context = ' '.join(tokens[match_idx + keyword_token_span : right_end])
+                left_context = ' '.join([t.text for t in doc[left_start:keyword_start_index]])
+                right_context = ' '.join([t.text for t in doc[right_context_start:right_context_end]])
                 
                 results.append({
-                    'context': ' '.join(tokens[left_start:right_end]),
-                    'keyword': keyword_text,
+                    'context': ' '.join([t.text for t in doc[left_start:right_context_end]]),
+                    'keyword': actual_keyword_text,
                     'left': left_context,
                     'right': right_context,
-                    'commit_hash': commit['hash'][:8]
+                    'commit_hash': commit['hash'][:8],
+                    'next_token': next_token_text, 
+                    'next_pos': next_token_pos,
+                    'sort_metric_label': None, # Will be set after sorting
+                    'sort_metric_value': None  # Will be set after sorting
                 })
+        
+        # ソート処理とメトリック値の設定
+        if sort_type == 'next_token_frequency' and results:
+            next_token_counts = Counter(r['next_token'] for r in results if r['next_token'])
+            results.sort(key=lambda x: next_token_counts[x['next_token']] if x['next_token'] else 0, reverse=True)
+            for r in results:
+                if r['next_token']:
+                    r['sort_metric_label'] = "後続単語頻度"
+                    r['sort_metric_value'] = f"{r['next_token']} ({next_token_counts[r['next_token']]}回)"
+                else:
+                    r['sort_metric_label'] = "後続単語なし"
+                    r['sort_metric_value'] = "-"
+        elif sort_type == 'next_pos_frequency' and results:
+            next_pos_counts = Counter(r['next_pos'] for r in results if r['next_pos'])
+            results.sort(key=lambda x: next_pos_counts[x['next_pos']] if x['next_pos'] else 0, reverse=True)
+            for r in results:
+                if r['next_pos']:
+                    r['sort_metric_label'] = "後続品詞頻度"
+                    r['sort_metric_value'] = f"{r['next_pos']} ({next_pos_counts[r['next_pos']]}回)"
+                else:
+                    r['sort_metric_label'] = "後続品詞なし"
+                    r['sort_metric_value'] = "-"
+        elif sort_type == 'sequential':
+             for r in results:
+                r['sort_metric_label'] = "出現順"
+                r['sort_metric_value'] = f"(コミット内 {results.index(r) + 1}番目)" # 単純なインデックス
         
         total_duration = time.time() - start_time
         logger.info(f"[KWIC検索処理完了] {len(results)}件の結果。(所要時間: {total_duration:.2f}秒)")
