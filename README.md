@@ -1,5 +1,3 @@
-# Git Commit Fingerprint Analyzer
-
 ## 概要
 
 このプロジェクトは、指定された公開GitHubリポジトリのコミットメッセージを分析し、以下の機能を提供することを目的としています。
