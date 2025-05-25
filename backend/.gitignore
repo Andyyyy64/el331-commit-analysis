@@ -1,0 +1,39 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Poetry
+.poetry/
+# poetry.lock # チーム開発ではコミットすることが推奨される場合もある
+
+# Virtual environments
+.env
+.venv
+venv/
+ENV/
+env/
+
+# IDE / Editor specific
+.vscode/
+.idea/
+*.project
+*.classpath
+*.cproject
+.DS_Store
+
+# Node.js (frontendディレクトリ内の.gitignoreでより詳細に管理)
+# node_modules/ # frontend/.gitignoreで管理
+# dist/
+# .next/
+# out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnp/
+.pnp.js
+
+# Operating System files
+.DS_Store
+Thumbs.db 
+el331

@@ -1,0 +1,43 @@
+services:
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend/app:/app/app  # コード変更をリアルタイムに反映 (開発時)
+    env_file:
+      - ./backend/.env  # GITHUB_PATなどの環境変数を読み込む
+    networks:
+      - app-network
+    # depends_on:
+      # - db # もしデータベースを使用する場合
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app # コード変更をリアルタイムに反映 (開発時)
+      - /app/node_modules # node_modulesはホストと共有しない
+      - /app/.next # .nextディレクトリもホストと共有しない
+    environment:
+      # Next.jsがバックエンドAPIを見つけられるようにする
+      # Dockerネットワーク内ではサービス名でアクセス可能
+      - NEXT_PUBLIC_API_URL=http://backend:8000/api
+      # 開発時に "npm run dev" を使いたい場合はコマンドを上書き
+    # command: npm run dev
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge
+
+# volumes:
+  # dbdata: # データベース永続化用 (もし使用する場合) 
