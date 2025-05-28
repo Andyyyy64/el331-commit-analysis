@@ -61,7 +61,7 @@ export default function AnalysisPage() {
   // KWIC検索用の状態
   const [kwicKeyword, setKwicKeyword] = useState('')
   const [kwicSearchType, setKwicSearchType] = useState('token')
-  const [kwicSortType, setKwicSortType] = useState('sequential')
+  const [kwicSortType, setKwicSortType] = useState('next_token_pos_combination_frequency')
 
   // fetchAnalysisData を useCallback でメモ化
   const fetchAnalysisData = useCallback(async () => {
@@ -210,6 +210,14 @@ export default function AnalysisPage() {
                 <CardDescription>
                   指定したキーワードの前後の文脈を表示します
                 </CardDescription>
+                <p className="text-sm text-slate-500">
+                  「品詞 (POS)」で検索すると、名詞 (NOUN)、動詞 (VERB) など、単語の種類を指定して検索できます。
+                </p>
+                <ul className="text-sm text-slate-500 list-disc pl-5 mt-1">
+                  <li><strong>単語:</strong> 入力した通りの単語・フレーズを検索します。</li>
+                  <li><strong>品詞 (POS):</strong> NOUN (名詞), VERB (動詞) など、品詞タグで検索します。</li>
+                  <li><strong>固有表現:</strong> PERSON (人名), ORG (組織名) など、固有表現タイプで検索します。</li>
+                </ul>
               </CardHeader>
               <CardContent>
                 <div className="flex gap-2 mb-4">
@@ -237,6 +245,7 @@ export default function AnalysisPage() {
                     <option value="sequential">出現順</option>
                     <option value="next_token_frequency">後続単語頻度順</option>
                     <option value="next_pos_frequency">後続品詞頻度順</option>
+                    <option value="next_token_pos_combination_frequency">後続トークン・品詞頻度順</option>
                   </select>
                   <Button onClick={performKwicSearch}>検索</Button>
                 </div>

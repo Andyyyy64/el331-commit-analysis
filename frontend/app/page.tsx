@@ -210,6 +210,21 @@ export default function Home() {
               </Alert>
             </CardContent>
           </Card>
+
+          {/* N-gram比較分析への導線カードを追加 */}
+          <Card>
+            <CardHeader>
+              <CardTitle>N-gram 比較分析</CardTitle>
+              <CardDescription>
+                2つのリポジトリまたはユーザー間で、N-gram (単語の組み合わせ) の出現パターンを比較します。
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Button onClick={() => router.push('/compare/ngrams')} className="w-full">
+                N-gram比較ページへ
+              </Button>
+            </CardContent>
+          </Card>
         </div>
 
         {/* 機能説明 */}

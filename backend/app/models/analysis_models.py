@@ -1,5 +1,5 @@
 from pydantic import BaseModel
-from typing import List, Optional
+from typing import List, Optional, Dict
 from datetime import datetime
 
 class RepositoryRequest(BaseModel):
@@ -68,4 +68,32 @@ class AuthorData(BaseModel):
 
 class AuthorResponse(BaseModel):
     authors: List[AuthorData]
-    total_authors: int 
+    total_authors: int
+
+# N-gram Comparison Models
+class NgramComparisonRequestData(BaseModel):
+    source_type: str # "repository" or "user"
+    identifier: str # e.g., "owner/repo" or "username"
+
+class NgramComparisonRequest(BaseModel):
+    source_q: NgramComparisonRequestData
+    source_k: NgramComparisonRequestData
+    ngram_n_values: List[int] = [1, 2, 3] # Uni, Bi, Trigram by default
+    step_size: int = 20
+    max_rank: int = 200 # Compare up to top 200 ngrams by default
+    min_frequency_q: int = 2 # Min frequency for ngrams from source Q
+    min_frequency_k: int = 2 # Min frequency for ngrams from source K
+
+class NgramComparisonStepResult(BaseModel):
+    ngram_n: int
+    rank_start: int
+    rank_end: int
+    common_ngrams: List[str]
+    common_ngrams_count: int
+    source_q_ngrams_in_step: List[str]
+    source_k_ngrams_in_step: List[str]
+
+class NgramComparisonResponse(BaseModel):
+    request_params: NgramComparisonRequest
+    results_by_n: Dict[int, List[NgramComparisonStepResult]]
+    error_message: Optional[str] = None 

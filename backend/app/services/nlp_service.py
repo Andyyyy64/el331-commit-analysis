@@ -1,5 +1,5 @@
 import spacy
-from typing import List, Dict, Tuple
+from typing import List, Dict, Tuple, Optional
 from collections import Counter, defaultdict
 import re
 import logging # ロギング追加
@@ -154,6 +154,27 @@ class NLPService:
                 else:
                     r['sort_metric_label'] = "後続品詞なし"
                     r['sort_metric_value'] = "-"
+        elif sort_type == 'next_token_pos_combination_frequency' and results:
+            next_token_pos_combinations = Counter(
+                (r['next_token'], r['next_pos']) for r in results if r['next_token'] and r['next_pos']
+            )
+            results.sort(
+                key=lambda x: next_token_pos_combinations[(x['next_token'], x['next_pos'])]
+                if x['next_token'] and x['next_pos'] else 0,
+                reverse=True
+            )
+            for r in results:
+                if r['next_token'] and r['next_pos']:
+                    combination_key = (r['next_token'], r['next_pos'])
+                    count = next_token_pos_combinations[combination_key]
+                    r['sort_metric_label'] = "後続トークン・品詞頻度"
+                    r['sort_metric_value'] = f"{r['next_token']} ({r['next_pos']}) - {count}回"
+                elif r['next_token']: # 品詞がない場合（通常は稀）
+                    r['sort_metric_label'] = "後続トークン (品詞なし)"
+                    r['sort_metric_value'] = f"{r['next_token']}"
+                else:
+                    r['sort_metric_label'] = "後続要素なし"
+                    r['sort_metric_value'] = "-"
         elif sort_type == 'sequential':
              for r in results:
                 r['sort_metric_label'] = "出現順"
@@ -231,4 +252,55 @@ class NLPService:
 
         total_duration = time.time() - start_time
         logger.info(f"[著者分析完了] {len(results)}人の著者を分析。(所要時間: {total_duration:.2f}秒)")
-        return results 
+        return results
+
+    def compare_ngrams_stepwise(
+        self,
+        processed_commits_q: List[Dict],
+        processed_commits_k: List[Dict],
+        ngram_n_values: List[int],
+        step_size: int,
+        max_rank: int,
+        min_frequency_q: int,
+        min_frequency_k: int
+    ) -> Dict[int, List[Dict]]: # Returns a Dict where key is N, value is list of step results
+        logger.info(f"[N-gram比較開始] N値: {ngram_n_values}, ステップ: {step_size}, 最大ランク: {max_rank}")
+        comparison_results_by_n: Dict[int, List[Dict]] = defaultdict(list)
+
+        for n_val in ngram_n_values:
+            logger.info(f"  [N={n_val}] データセットQのN-gramを生成中...")
+            ngrams_q_all = self.generate_ngrams(processed_commits_q, n=n_val, min_frequency=min_frequency_q)
+            logger.info(f"  [N={n_val}] データセットKのN-gramを生成中...")
+            ngrams_k_all = self.generate_ngrams(processed_commits_k, n=n_val, min_frequency=min_frequency_k)
+
+            # N-gram文字列のリストに変換 (ランク順になっているはず)
+            ranked_ngrams_q = [item['ngram'] for item in ngrams_q_all]
+            ranked_ngrams_k = [item['ngram'] for item in ngrams_k_all]
+
+            logger.info(f"  [N={n_val}] Q: {len(ranked_ngrams_q)}種類, K: {len(ranked_ngrams_k)}種類のN-gramを比較します。")
+
+            for current_rank_start in range(0, min(max_rank, max(len(ranked_ngrams_q), len(ranked_ngrams_k))), step_size):
+                rank_end = current_rank_start + step_size
+
+                ngrams_q_step = ranked_ngrams_q[current_rank_start:rank_end]
+                ngrams_k_step = ranked_ngrams_k[current_rank_start:rank_end]
+
+                # 共通N-gramを見つける (効率のためセットを使用)
+                common_in_step = list(set(ngrams_q_step) & set(ngrams_k_step))
+                common_in_step.sort() # 表示順を安定させるためソート
+
+                step_result = {
+                    'ngram_n': n_val,
+                    'rank_start': current_rank_start + 1, # 1-indexed for display
+                    'rank_end': rank_end,
+                    'common_ngrams': common_in_step,
+                    'common_ngrams_count': len(common_in_step),
+                    'source_q_ngrams_in_step': ngrams_q_step,
+                    'source_k_ngrams_in_step': ngrams_k_step,
+                }
+                comparison_results_by_n[n_val].append(step_result)
+            
+            logger.info(f"  [N={n_val}] 比較ステップ完了。 {len(comparison_results_by_n[n_val])} ステップの結果を生成。")
+
+        logger.info(f"[N-gram比較完了] 全N値の処理完了。")
+        return dict(comparison_results_by_n) 
